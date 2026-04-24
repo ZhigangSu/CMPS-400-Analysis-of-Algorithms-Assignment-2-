@@ -1,0 +1,534 @@
+#include <iostream>
+#include <iomanip>
+#include <cstdlib>
+#include <ctime>
+#include <limits>
+using namespace std;
+
+const int MAX_SIZE = 10;
+
+struct Matrix {
+    int id;
+    int values[MAX_SIZE][MAX_SIZE];
+    int original[MAX_SIZE][MAX_SIZE];
+    int rows;
+    int cols;
+    bool exists;
+};
+
+struct MultiplyResult {
+    bool compatible;
+    int result[MAX_SIZE][MAX_SIZE];
+    int resultRows;
+    int resultCols;
+    int scalarMultiplications;
+    int additions;
+};
+
+struct ScalarResult {
+    int scalar;
+    int multiplications;
+    int writes;
+};
+
+int generateUniqueID(const Matrix& A, const Matrix& B);
+void copyMatrix(int dest[][MAX_SIZE], const int src[][MAX_SIZE], int rows, int cols);
+void displayMatrix(const int mat[][MAX_SIZE], int rows, int cols);
+void createMatrix(Matrix& m, char name, const Matrix& other);
+bool canMultiply(const Matrix& A, const Matrix& B);
+MultiplyResult multiplyMatrices(const Matrix& A, const Matrix& B);
+ScalarResult scalarMultiply(Matrix& m, int k);
+void restoreMatrix(Matrix& m);
+void displayCurrentMatrices(const Matrix& A, const Matrix& B);
+void checkCompatibility(const Matrix& A, const Matrix& B);
+void performMultiplication(const Matrix& A, const Matrix& B, char first, char second);
+void multiplyByScalar(Matrix& A, Matrix& B);
+void restoreOriginalMatrices(Matrix& A, Matrix& B);
+void showMenu();
+void pauseProgram();
+int getValidInt(string prompt, int minValue, int maxValue);
+
+int main() {
+    srand(time(0));
+
+    Matrix A;
+    Matrix B;
+
+    A.exists = false;
+    B.exists = false;
+
+    int choice;
+
+    do {
+        showMenu();
+        cout << "Choice: ";
+        cin >> choice;
+
+        if (choice == 1) {
+            createMatrix(A, 'A', B);
+        }
+        else if (choice == 2) {
+            createMatrix(B, 'B', A);
+        }
+        else if (choice == 3) {
+            displayCurrentMatrices(A, B);
+        }
+        else if (choice == 4) {
+            checkCompatibility(A, B);
+        }
+        else if (choice == 5) {
+            performMultiplication(A, B, 'A', 'B');
+        }
+        else if (choice == 6) {
+            performMultiplication(B, A, 'B', 'A');
+        }
+        else if (choice == 7) {
+            multiplyByScalar(A, B);
+        }
+        else if (choice == 8) {
+            restoreOriginalMatrices(A, B);
+        }
+        else if (choice == 0) {
+            cout << endl;
+            cout << "Thank you for using the Matrix Workbench!" << endl;
+            cout << "Goodbye!" << endl;
+        }
+        else {
+            cout << "Invalid choice. Please try again." << endl;
+            pauseProgram();
+        }
+
+    } while (choice != 0);
+
+    return 0;
+}
+
+void showMenu() {
+    cout << endl;
+    cout << "*************** Matrix Workbench ***************" << endl;
+    cout << "1- Create Matrix A" << endl;
+    cout << "2- Create Matrix B" << endl;
+    cout << "3- Display current matrices" << endl;
+    cout << "4- Check multiplication compatibility" << endl;
+    cout << "5- Perform A x B" << endl;
+    cout << "6- Perform B x A" << endl;
+    cout << "7- Multiply a matrix by a scalar" << endl;
+    cout << "8- Restore original matrices" << endl;
+    cout << "0- Exit" << endl;
+}
+
+int generateUniqueID(const Matrix& A, const Matrix& B) {
+    int newID;
+    bool duplicate;
+
+    do {
+        duplicate = false;
+        newID = 10000 + rand() % 90000;
+
+        if (A.exists && A.id == newID) {
+            duplicate = true;
+        }
+
+        if (B.exists && B.id == newID) {
+            duplicate = true;
+        }
+
+    } while (duplicate);
+
+    return newID;
+}
+
+void copyMatrix(int dest[][MAX_SIZE], const int src[][MAX_SIZE], int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            dest[i][j] = src[i][j];
+        }
+    }
+}
+
+void displayMatrix(const int mat[][MAX_SIZE], int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            cout << setw(6) << mat[i][j];
+        }
+        cout << endl;
+    }
+}
+
+int getValidInt(string prompt, int minValue, int maxValue) {
+    int value;
+
+    cout << prompt;
+    cin >> value;
+
+    while (value < minValue || value > maxValue) {
+        cout << "Invalid input. Enter a value from " << minValue << " to " << maxValue << ": ";
+        cin >> value;
+    }
+
+    return value;
+}
+
+void createMatrix(Matrix& m, char name, const Matrix& other) {
+    int method;
+    int minValue;
+    int maxValue;
+
+    cout << endl;
+    m.rows = getValidInt("Enter number of rows for Matrix " + string(1, name) + " (1-10): ", 1, 10);
+    m.cols = getValidInt("Enter number of columns for Matrix " + string(1, name) + " (1-10): ", 1, 10);
+
+    cout << "Choose input method:" << endl;
+    cout << "1- Manual" << endl;
+    cout << "2- Random" << endl;
+    cout << "Choice: ";
+    cin >> method;
+
+    while (method != 1 && method != 2) {
+        cout << "Invalid choice. Enter 1 for Manual or 2 for Random: ";
+        cin >> method;
+    }
+
+    if (method == 1) {
+        for (int i = 0; i < m.rows; i++) {
+            for (int j = 0; j < m.cols; j++) {
+                cout << "Enter " << name << "[" << i << "][" << j << "]: ";
+                cin >> m.values[i][j];
+            }
+        }
+    }
+    else {
+        cout << "Enter minimum random value: ";
+        cin >> minValue;
+
+        cout << "Enter maximum random value: ";
+        cin >> maxValue;
+
+        while (minValue > maxValue) {
+            cout << "Minimum cannot be greater than maximum." << endl;
+            cout << "Enter minimum random value: ";
+            cin >> minValue;
+            cout << "Enter maximum random value: ";
+            cin >> maxValue;
+        }
+
+        for (int i = 0; i < m.rows; i++) {
+            for (int j = 0; j < m.cols; j++) {
+                m.values[i][j] = minValue + rand() % (maxValue - minValue + 1);
+            }
+        }
+    }
+
+    copyMatrix(m.original, m.values, m.rows, m.cols);
+
+    m.exists = true;
+
+    Matrix emptyMatrix;
+    emptyMatrix.exists = false;
+
+    if (name == 'A') {
+        m.id = generateUniqueID(m, other);
+    }
+    else {
+        m.id = generateUniqueID(other, m);
+    }
+
+    cout << endl;
+    cout << "Great! Matrix " << name << " has been created." << endl;
+    cout << "Matrix " << name << " ID: " << m.id << endl;
+    cout << "Order: " << m.rows << " x " << m.cols << endl;
+    displayMatrix(m.values, m.rows, m.cols);
+
+    pauseProgram();
+}
+
+bool canMultiply(const Matrix& A, const Matrix& B) {
+    return A.exists && B.exists && A.cols == B.rows;
+}
+
+MultiplyResult multiplyMatrices(const Matrix& A, const Matrix& B) {
+    MultiplyResult result;
+
+    result.compatible = canMultiply(A, B);
+    result.scalarMultiplications = 0;
+    result.additions = 0;
+    result.resultRows = 0;
+    result.resultCols = 0;
+
+    if (!result.compatible) {
+        return result;
+    }
+
+    result.resultRows = A.rows;
+    result.resultCols = B.cols;
+
+    for (int i = 0; i < A.rows; i++) {
+        for (int j = 0; j < B.cols; j++) {
+            result.result[i][j] = 0;
+
+            for (int k = 0; k < A.cols; k++) {
+                result.result[i][j] += A.values[i][k] * B.values[k][j];
+                result.scalarMultiplications++;
+
+                if (k > 0) {
+                    result.additions++;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+ScalarResult scalarMultiply(Matrix& m, int k) {
+    ScalarResult result;
+
+    result.scalar = k;
+    result.multiplications = 0;
+    result.writes = 0;
+
+    for (int i = 0; i < m.rows; i++) {
+        for (int j = 0; j < m.cols; j++) {
+            m.values[i][j] = m.values[i][j] * k;
+            result.multiplications++;
+            result.writes++;
+        }
+    }
+
+    return result;
+}
+
+void restoreMatrix(Matrix& m) {
+    if (m.exists) {
+        copyMatrix(m.values, m.original, m.rows, m.cols);
+    }
+}
+
+void displayCurrentMatrices(const Matrix& A, const Matrix& B) {
+    cout << endl;
+
+    if (!A.exists) {
+        cout << "Matrix A has not been created yet." << endl;
+    }
+    else {
+        cout << "Matrix A ID: " << A.id << endl;
+        cout << "Order: " << A.rows << " x " << A.cols << endl;
+        displayMatrix(A.values, A.rows, A.cols);
+    }
+
+    cout << endl;
+
+    if (!B.exists) {
+        cout << "Matrix B has not been created yet." << endl;
+    }
+    else {
+        cout << "Matrix B ID: " << B.id << endl;
+        cout << "Order: " << B.rows << " x " << B.cols << endl;
+        displayMatrix(B.values, B.rows, B.cols);
+    }
+
+    pauseProgram();
+}
+
+void checkCompatibility(const Matrix& A, const Matrix& B) {
+    cout << endl;
+    cout << "------ Compatibility Report ------" << endl;
+
+    if (!A.exists || !B.exists) {
+        cout << "Both Matrix A and Matrix B must be created first." << endl;
+        cout << "----------------------------------" << endl;
+        pauseProgram();
+        return;
+    }
+
+    cout << "Matrix A Order: " << A.rows << " x " << A.cols << endl;
+    cout << "Matrix B Order: " << B.rows << " x " << B.cols << endl;
+
+    if (A.cols == B.rows) {
+        cout << "A x B: Valid" << endl;
+        cout << "Result Order: " << A.rows << " x " << B.cols << endl;
+    }
+    else {
+        cout << "A x B: Not defined" << endl;
+    }
+
+    if (B.cols == A.rows) {
+        cout << "B x A: Valid" << endl;
+        cout << "Result Order: " << B.rows << " x " << A.cols << endl;
+    }
+    else {
+        cout << "B x A: Not defined" << endl;
+    }
+
+    cout << "Note: Even when both products are defined, matrix multiplication is generally not commutative." << endl;
+    cout << "Theoretical Complexity:" << endl;
+    cout << "Time Complexity: O(1)" << endl;
+    cout << "Auxiliary Space: O(1)" << endl;
+    cout << "----------------------------------" << endl;
+
+    pauseProgram();
+}
+
+void performMultiplication(const Matrix& A, const Matrix& B, char first, char second) {
+    cout << endl;
+    cout << "------ Matrix Multiplication Report ------" << endl;
+
+    if (!A.exists || !B.exists) {
+        cout << "Both Matrix " << first << " and Matrix " << second << " must be created first." << endl;
+        cout << "----------------------------------------" << endl;
+        pauseProgram();
+        return;
+    }
+
+    MultiplyResult result = multiplyMatrices(A, B);
+
+    if (!result.compatible) {
+        cout << "Matrix " << first << " x Matrix " << second << " is not defined." << endl;
+        cout << "Reason: Matrix " << first << " columns must equal Matrix " << second << " rows." << endl;
+        cout << "----------------------------------------" << endl;
+        pauseProgram();
+        return;
+    }
+
+    cout << "Matrix " << first << ":" << endl;
+    displayMatrix(A.values, A.rows, A.cols);
+
+    cout << "Matrix " << second << ":" << endl;
+    displayMatrix(B.values, B.rows, B.cols);
+
+    cout << first << " x " << second << ":" << endl;
+    displayMatrix(result.result, result.resultRows, result.resultCols);
+
+    cout << "Result Order: " << result.resultRows << " x " << result.resultCols << endl;
+    cout << "Scalar Multiplications: " << result.scalarMultiplications << endl;
+    cout << "Additions: " << result.additions << endl;
+
+    cout << "Theoretical Complexity:" << endl;
+
+    if (first == 'A' && second == 'B') {
+        cout << "Time Complexity: O(rA x cA x cB)" << endl;
+        cout << "For square matrices n x n: O(n^3)" << endl;
+        cout << "Auxiliary Space: O(rA x cB)" << endl;
+    }
+    else {
+        cout << "Time Complexity: O(rB x cB x cA)" << endl;
+        cout << "For square matrices n x n: O(n^3)" << endl;
+        cout << "Auxiliary Space: O(rB x cA)" << endl;
+    }
+
+    cout << "----------------------------------------" << endl;
+
+    pauseProgram();
+}
+
+void multiplyByScalar(Matrix& A, Matrix& B) {
+    int choice;
+    int scalar;
+
+    cout << endl;
+
+    if (!A.exists && !B.exists) {
+        cout << "Neither Matrix A nor Matrix B exists." << endl;
+        pauseProgram();
+        return;
+    }
+
+    cout << "Select matrix:" << endl;
+    cout << "1- Matrix A" << endl;
+    cout << "2- Matrix B" << endl;
+    cout << "Choice: ";
+    cin >> choice;
+
+    while (choice != 1 && choice != 2) {
+        cout << "Invalid choice. Enter 1 or 2: ";
+        cin >> choice;
+    }
+
+    if (choice == 1 && !A.exists) {
+        cout << "Matrix A has not been created yet." << endl;
+        pauseProgram();
+        return;
+    }
+
+    if (choice == 2 && !B.exists) {
+        cout << "Matrix B has not been created yet." << endl;
+        pauseProgram();
+        return;
+    }
+
+    cout << "Enter scalar value: ";
+    cin >> scalar;
+
+    if (choice == 1) {
+        cout << "Before Scalar Multiplication:" << endl;
+        displayMatrix(A.values, A.rows, A.cols);
+
+        ScalarResult result = scalarMultiply(A, scalar);
+
+        cout << "After Scalar Multiplication:" << endl;
+        displayMatrix(A.values, A.rows, A.cols);
+
+        cout << "Scalar Multiplications: " << result.multiplications << endl;
+        cout << "Writes: " << result.writes << endl;
+    }
+    else {
+        cout << "Before Scalar Multiplication:" << endl;
+        displayMatrix(B.values, B.rows, B.cols);
+
+        ScalarResult result = scalarMultiply(B, scalar);
+
+        cout << "After Scalar Multiplication:" << endl;
+        displayMatrix(B.values, B.rows, B.cols);
+
+        cout << "Scalar Multiplications: " << result.multiplications << endl;
+        cout << "Writes: " << result.writes << endl;
+    }
+
+    cout << "Theoretical Complexity:" << endl;
+    cout << "Time Complexity: O(r x c)" << endl;
+    cout << "Auxiliary Space: O(1)" << endl;
+
+    pauseProgram();
+}
+
+void restoreOriginalMatrices(Matrix& A, Matrix& B) {
+    cout << endl;
+
+    if (!A.exists && !B.exists) {
+        cout << "No matrices exist to restore." << endl;
+        pauseProgram();
+        return;
+    }
+
+    if (A.exists) {
+        restoreMatrix(A);
+    }
+
+    if (B.exists) {
+        restoreMatrix(B);
+    }
+
+    cout << "Original matrices restored successfully!" << endl;
+
+    if (A.exists) {
+        cout << "Matrix A Restored:" << endl;
+        cout << "Matrix A ID: " << A.id << endl;
+        cout << "Order: " << A.rows << " x " << A.cols << endl;
+        displayMatrix(A.values, A.rows, A.cols);
+    }
+
+    if (B.exists) {
+        cout << "Matrix B Restored:" << endl;
+        cout << "Matrix B ID: " << B.id << endl;
+        cout << "Order: " << B.rows << " x " << B.cols << endl;
+        displayMatrix(B.values, B.rows, B.cols);
+    }
+
+    pauseProgram();
+}
+
+void pauseProgram() {
+    cout << "Press any key to return to Main Menu!";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
+}
